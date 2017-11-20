@@ -3,85 +3,44 @@
 
 (enable-console-print!)
 
-(def se-es-cards
+(def se-es-pairs
   [{:se "Hej" :es "Hola"}
    {:se "Arbeta" :es "Trabajando"}
    {:se "Apa" :es "Mono"}])
 
-(defn create-state
-  [word-pairs]
-  {:cards word-pairs :current-card 0})
-
-(defn add-card-id [word-pairs]
-  (map-indexed (fn [idx itm]
-                 (assoc itm :id idx))
-               se-es-cards))
-
-(def app-state
-  (atom (create-state se-es-cards)))
-
-(defn atom-next []
-  (if (< (inc (get @app-state :current-card))
-         (count (get @app-state :cards)))
-    (swap! app-state update-in [:current-card] inc)))
-
-(defn atom-prev []
-  (if (> (get @app-state :current-card)
-         0)
-    (swap! app-state update-in [:current-card] dec)))
-
-(defn card
-  []
-  (let [card-state (atom {:es-up true})]
+(defn card [card-pair-id text]
+  "Creates a card with the given card pair id and text"
+  (let [card-state (atom {:card-pair-id card-pair-id :text text :visible true})]
     (fn []
-      [:div
-       [:section {:class "container"}
-        [:div {:class (str "card " (:es-up @card-state))
-               :on-click #(swap! card-state update-in [:es-up]
-                                 (fn [es] (not es)))}
-         [:div {:class "front"}
-          (if (get @card-state :es-up)
-            ""
-            (:es (get-in @app-state [:cards (get @app-state :current-card)])))]
-         [:div {:class "back"}
-          (if (get @card-state :es-up)
-            (:se (get-in @app-state [:cards (get @app-state :current-card)]))
-            "")]]]
-       [:div
-        [:button {:on-click #(swap! card-state update-in [:es-up]
-                                    (fn [es] (not es)))} "Vänd"]
-        [:button {:on-click #(do (atom-prev)
-                                 (swap! card-state update-in [:es-up]
-                                        (fn [es] true)))} "Foregaende"]
-        [:button {:on-click #(do (atom-next)
-                                 (swap! card-state update-in [:es-up]
-                                        (fn [es] true)))} "Nasta"]]])))
+      [:div {:class "container"}
+       [:div {:class    (str "card " (:visible @card-state))
+              :on-click #(swap! card-state update-in [:visible] (fn [b] (not b)))}
+        [:div {:class "front"}
+         (get @card-state :text)]
+        [:div {:class "back"}]]])))
 
 
+(defn create-cards [wordpairs]
+  "Takes pairs of words and returns a list with the paired words separated
+   but with the same card-pair-id"
+  (loop [card-pair-id 1
+         finished []
+         start wordpairs]
+    (if (empty? start)
+      finished
+      (recur (inc card-pair-id)
+             (concat finished
+                     [(card card-pair-id (:se (first start)))
+                      (card card-pair-id (:es (first start)))])
+             (rest start)))))
 
-;(defn card
-;  []
-;  (let [card-state (atom {:es-up true})]
-;    (fn []
-;      [:div {:class (if (get @card-state :es-up)
-;                      "flip-container"
-;                      "flip-container")}
-;       [:p  (if (get @card-state :es-up)
-;                (:es (get-in @app-state [:cards (get @app-state :current-card)]))
-;                (:se (get-in @app-state [:cards (get @app-state :current-card)])))]
-;
-;       [:div
-;        [:button {:on-click #(swap! card-state update-in [:es-up]
-;                                    (fn [es] (not es)))} "Vänd"]
-;        [:button {:on-click #(do (atom-prev)
-;                                 (swap! card-state update-in [:es-up]
-;                                        (fn [es] true)))} "Foregaende"]
-;        [:button {:on-click #(atom-next)} "N'sta"]]])))
-
-
+(defn board [cards]
+  [:div
+   (for [item cards]
+     (item))])
 
 (defn ^:export main []
-  (reagent/render [card]
+  (reagent/render [board (create-cards se-es-pairs)]
                   (.getElementById js/document "app")))
 (main)
 
